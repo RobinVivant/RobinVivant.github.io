@@ -1,0 +1,9 @@
+
+#ace-editor {
+	width:100%;
+	height:300px;
+}
+
+@-moz-document url-prefix() {
+  fieldset { display: table-cell; }
+}
