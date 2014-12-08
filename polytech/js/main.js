@@ -23,7 +23,7 @@ function output(str){
 }
 */
 var Hash = {
-	KEY_LENGTH : 160,
+	KEY_LENGTH : 6,
 	hash : function(identifier){
 		// discuss at: http://phpjs.org/functions/sha1/
 		// original by: Webtoolkit.info (http://www.webtoolkit.info/)
@@ -143,104 +143,98 @@ var Hash = {
 
 function Chord(){
 
-	this.nodeList = [];
+	var nodeList = [];
 	
-	function createNode( nodeId ){
+	// PUBLIC API
+	this.createNode = function( nodeId ){
 		var node = new ChordNode(nodeId);
-		this.nodeList.push(node);
+		nodeList.push(node);
 	}
 	
-	function getNode( index ){
-		return this.nodeList[i];
+	this.getNode = function( index ){
+		return nodeList[index];
 	}
-	
-	//public API
-	this.createNode = createNode;
-	this.getNode = getNode;
 }
 
 function ChordNode( nodeId ){
 	var nodeKey = new ChordKey(nodeId);
 	var predecessor;
-	var successor;
-	var fingerTable = new FingerTable(this)
-	var that = this;
+	this.successor = null;
+	var fingerTable = null; 
 	
-	// INTERNALS
-	
-	function closestPrecedingNode(key) {
+		
+	//PUBLIC API
+	this.closestPrecedingNode = function(key) {
 		for (var i = Hash.KEY_LENGTH - 1; i >= 0; i--) {
 			finger = fingerTable.getFinger(i);
 			fingerKey = finger.getNode().getNodeKey();
-			if (fingerKey.isBetween(that.getNodeKey(), key)) {
+			if (fingerKey.isBetween(this.getNodeKey(), key)) {
 				return finger.getNode();
 			}
 		}
-		return that;
+		return this;
 	}
 	
-	function notifyPredecessor(node) {
+	this.notifyPredecessor = function(node) {
 		key = node.getNodeKey();
 		if (predecessor == null
-				|| key.isBetween(predecessor.getNodeKey(), that.getNodeKey())) {
+				|| key.isBetween(predecessor.getNodeKey(), this.getNodeKey())) {
 			predecessor = node;
 		}
 	}
-	
-	//PUBLIC API
-	
+
 	this.create = function(){
+		fingerTable = new FingerTable(this);
 		predecessor = null;
-		successor = that;
+		this.successor = this;
 	}
 	
 	this.findSuccessor = function( identifier ){
-		if( identifier instanceof String ){
-			var key = new ChordKey(identifier);
-			return findSuccessor(key)
-		}else if( identifier instanceof ChordKey ){
+		if( identifier instanceof ChordKey ){
 			var key = identifier;
-			
-			if (that == successor) {
-				return that;
+				
+			if (this == this.successor) {
+				return this;
 			}
 
-			if ( key.isBetween(that.getNodeKey(), successor.getNodeKey())
-					|| key.compareTo(successor.getNodeKey()) == 0) {
-				return successor;
+			if ( key.isBetween(this.getNodeKey(), this.successor.getNodeKey())
+					|| key.compareTo(this.successor.getNodeKey()) == 0) {
+				return this.successor;
 			} else {
-				var node = closestPrecedingNode(key);
-				if (node == that) {
-					return successor.findSuccessor(key);
+				var node = this.closestPrecedingNode(key);
+				if (node == this) {
+					return this.successor.findSuccessor(key);
 				}
 				return node.findSuccessor(key);
 			}
+		}else{
+			var key = new ChordKey(identifier);
+			return this.findSuccessor(key);
 		}
 	}
 	
 
 	this.join = function(node) {
 		predecessor = null;
-		successor = node.findSuccessor(that.getNodeId());
+		this.successor = node.findSuccessor(this.getNodeId());
 	}
 
 	this.stabilize = function() {
-		node = successor.getPredecessor();
+		var node = this.successor.getPredecessor();
 		if (node != null) {
-			key = node.getNodeKey();
-			if (that == successor
-					|| key.isBetween(that.getNodeKey(), successor.getNodeKey())) {
-				successor = node;
+			if (this == this.successor
+					|| node.getNodeKey().isBetween(this.getNodeKey(), this.successor.getNodeKey())) {
+				this.successor = node;
 			}
 		}
-		successor.notifyPredecessor(that);
+		this.successor.notifyPredecessor(this);
 	}
 
 	this.fixFingers = function() {
 		for (var i = 0; i < Hash.KEY_LENGTH; i++) {
-			finger = fingerTable.getFinger(i);
-			key = finger.getStart();
-			finger.setNode(findSuccessor(key));
+			var finger = fingerTable.getFinger(i);
+			var key = finger.getStart();
+			finger.setNode(this.findSuccessor(key));
 		}
 	}
 
@@ -250,14 +244,14 @@ function ChordNode( nodeId ){
 
 	this.printFingerTable = function() {
 		console.log("=======================================================");
-		console.log("FingerTable: " + that);
+		console.log("FingerTable: " + this);
 		console.log("-------------------------------------------------------");
 		console.log("Predecessor: " + predecessor);
-		console.log("Successor: " + successor);
+		console.log("Successor: " + this.successor);
 		console.log("-------------------------------------------------------");
 		for (var i = 0; i < Hash.KEY_LENGTH; i++) {
 			finger = fingerTable.getFinger(i);
-			that(finger.getStart() + "\t" + finger.getNode());
+			console.log(finger.getStart() + "\t" + finger.getNode());
 		}
 		console.log("=======================================================");
 	}
@@ -267,7 +261,7 @@ function ChordNode( nodeId ){
 	}
 
 	this.setNodeId = function(nodeId) {
-		that.nodeId = nodeId;
+		this.nodeId = nodeId;
 	}
 
 	this.getNodeKey = function() {
@@ -275,7 +269,7 @@ function ChordNode( nodeId ){
 	}
 
 	this.setNodeKey = function(nodeKey) {
-		that.nodeKey = nodeKey;
+		this.nodeKey = nodeKey;
 	}
 
 	this.getPredecessor = function() {
@@ -283,15 +277,15 @@ function ChordNode( nodeId ){
 	}
 
 	this.setPredecessor = function(predecessor) {
-		that.predecessor = predecessor;
+		this.predecessor = predecessor;
 	}
 
 	this.getSuccessor = function() {
-		return successor;
+		return this.successor;
 	}
 
 	this.setSuccessor = function(successor) {
-		that.successor = successor;
+		this.successor = successor;
 	}
 
 	this.getFingerTable = function() {
@@ -299,11 +293,10 @@ function ChordNode( nodeId ){
 	}
 
 	this.setFingerTable = function(fingerTable) {
-		that.fingerTable = fingerTable;
+		this.fingerTable = fingerTable;
 	}
 	
 	this.create();
-	
 }
 
 function ChordKey( id ){
@@ -344,12 +337,13 @@ function ChordKey( id ){
 			}
 			carry = (value >> 8) & 0xff;
 		}
+
 		return new ChordKey(newKey);
 	}
 
 	this.compareTo = function(targetKey) {
 		for (var i = 0; i < key.length; i++) {
-			var loperand = (this.key[i] & 0xff);
+			var loperand = (key[i] & 0xff);
 			var roperand = (targetKey.getKey()[i] & 0xff);
 			if (loperand != roperand) {
 				return (loperand - roperand);
@@ -362,7 +356,7 @@ function ChordKey( id ){
 		var out = "";
 		if (key.length > 4) {
 			for (var i = 0; i < key.length; i++) {
-				out += (key[i] & 0xff) + ".";
+				out += (key[i] & 0xff);
 			}
 		} else {
 			var n = 0, i = key.length-1, j = 0;
@@ -417,8 +411,9 @@ function FingerTable( node ){
 	
 	var fingers = [];
 
-	for (var i = 0; i < fingers.length; i++) {
-		startKey = node.getNodeKey().createStartKey(i);
+	for (var i = 0; i < Hash.KEY_LENGTH; i++) {
+		var startKey = node.getNodeKey().createStartKey(i);
+		console.log("lala "+startKey);
 		fingers[i] = new Finger(startKey, node);
 	}
 
@@ -428,19 +423,18 @@ function FingerTable( node ){
 }
 
 chord = new Chord();
-var NUM_OF_NODES = 10;
+var NUM_OF_NODES = 4;
 for (var i = 0; i < NUM_OF_NODES; i++) {
-	chord.createNode((""+Math.random()).substring(2) % 64);
+	chord.createNode((""+Math.random()).substring(2) % Math.pow(2, Hash.KEY_LENGTH));
 }
 console.log(NUM_OF_NODES + " nodes are created.");
 
 for (var i = 0; i < NUM_OF_NODES; i++) {
-	console.log(chord.getNode(i).toString());
+	console.log(""+chord.getNode(i).getSuccessor());
 }
 
 for (var i = 1; i < NUM_OF_NODES; i++) {
 	var node = chord.getNode(i);
-	console.log("lol "+node.toString());
 	node.join(chord.getNode(0));
 	var preceding = node.getSuccessor().getPredecessor();
 	node.stabilize();
@@ -451,4 +445,16 @@ for (var i = 1; i < NUM_OF_NODES; i++) {
 	}
 }
 
-out.println("Chord ring is established.");
+console.log("Chord ring is established.");
+
+for (var i = 0; i < NUM_OF_NODES; i++) {
+	var node = chord.getNode(i);
+	node.fixFingers();
+}
+
+console.log("Finger Tables are fixed.");
+
+for (var i = 0; i < NUM_OF_NODES; i++) {
+	var node = chord.getNode(i);
+	node.printFingerTable();
+}
